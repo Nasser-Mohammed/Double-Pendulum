@@ -44,6 +44,15 @@ function initializePendulums(){
 
 }
 
+function drawMidline(){
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = 'white';
+    ctx.beginPath();
+    ctx.moveTo(0, lineHeight);
+    ctx.lineTo(width, lineHeight);
+    ctx.stroke();
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   canvas = document.getElementById("pendulumCanvas");
   ctx = canvas.getContext("2d");
@@ -51,6 +60,8 @@ document.addEventListener("DOMContentLoaded", () => {
   height = canvas.height;
   ctx.fillStyle = "black";
   ctx.fillRect(0, 0, width, height);
-  lineHeight = 
+  lineHeight = Math.floor((1/3)*height);
+  lineWidth = width;
+  drawMidline();
   initializePendulums();
 });
