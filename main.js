@@ -91,15 +91,15 @@ function convert_xy_2_coords(x, y){
 
 
 function initializePendulums(){
-  p1.theta = pi/2;
+  p1.theta = 3*pi/2;
 
-  p1.x = p1.length*Math.cos(p1.theta);
-  p1.y = p1.length*Math.sin(p1.theta);
+  p1.x = p1.length*Math.sin(p1.theta);
+  p1.y = p1.length*Math.cos(p1.theta);
   
   p2.theta = p1.theta + Math.asin((p2.length)/(Math.sqrt(p2.length**2 + p1.length**2)));
 
-  p2.x = (Math.sqrt(p2.length**2 + p1.length**2))*Math.cos(p2.theta)
-  p2.y = (Math.sqrt(p2.length**2 + p1.length**2))*Math.sin(p2.theta)
+  p2.x = (Math.sqrt(p2.length**2 + p1.length**2))*Math.sin(p2.theta)
+  p2.y = (Math.sqrt(p2.length**2 + p1.length**2))*Math.cos(p2.theta)
 
   const [x1, y1] = convert_xy_2_coords(p1.x, p1.y);
   p1.x = x1;
