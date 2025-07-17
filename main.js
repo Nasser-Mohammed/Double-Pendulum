@@ -12,7 +12,7 @@ let midLineHeight;
 let midLineWidth;
 
 const pi = Math.PI;
-const g = 6.6743*Math.pow(10, -11);
+const g = 9.81;
 console.log("constants are: pi: ", pi, " and g: ", g);
 
 //this means it will rotate within a circle of radius 310
@@ -24,7 +24,7 @@ let initial_y1;
 let initial_x2;
 let initial_y2;
 
-const dt = 0.001;
+const dt = 0.1;
 
 let canvas;
 let ctx;
@@ -34,23 +34,72 @@ let width;
 let animationId;
 let lastTime = null
 
-function timeStep(){
-  //little Omega is velocity, so its derivative is acceleration
-  let thetaDiff = p1.theta - p2.theta;
-  let dOmega = (-g*(2*p1.mass + p2.mass)*Math.sin(p1.theta) - p2.mass*g*Math.sin(p1.theta-2*p2.theta)-2*Math.sin(thetaDiff)*p2.mass*(p2.length*p2.velocity**2*Math.cos(thetaDiff)));
-  dOmega = dOmega/(p1.length*(2*p1.mass+p2.mass-p2.mass*Math.cos(2*thetaDiff)));
-  let dLambda = 2*Math.sin(thetaDiff)*(p1.length*(p1.mass+p2.mass)*p1.velocity**2)+g*(p1.mass+p2.mass)*Math.cos(p1.theta)+p2.length*p2.mass*p2.velocity**2*Math.cos(thetaDiff);
-  dLambda = dLambda/(p2.length*(2*p1.mass + p2.mass - p2.mass*Math.cos(2*(thetaDiff))));
-  
-  p1.velocity = dt*p1.acceleration + p1.velocity;
-  p1.acceleration = dt*dOmega + p1.acceleration;
-  p2.velocity = dt*p2.acceleration + p2.velocity;
-  p2.acceleration = dt*dLambda + p2.acceleration;
+function timeStep() {
+  let m1 = p1.mass;
+  let m2 = p2.mass;
+  let l1 = p1.length;
+  let l2 = p2.length;
+  let a1 = p1.theta;
+  let a2 = p2.theta;
+  let w1 = p1.velocity;
+  let w2 = p2.velocity;
+
+  let num1 = -g * (2 * m1 + m2) * Math.sin(a1);
+  let num2 = -m2 * g * Math.sin(a1 - 2 * a2);
+  let num3 = -2 * Math.sin(a1 - a2) * m2;
+  let num4 = w2 * w2 * l2 + w1 * w1 * l1 * Math.cos(a1 - a2);
+  let den = l1 * (2 * m1 + m2 - m2 * Math.cos(2 * a1 - 2 * a2));
+  let a1_acc = (num1 + num2 + num3 * num4) / den;
+
+  let num5 = 2 * Math.sin(a1 - a2);
+  let num6 = (w1 * w1 * l1 * (m1 + m2));
+  let num7 = g * (m1 + m2) * Math.cos(a1);
+  let num8 = w2 * w2 * l2 * m2 * Math.cos(a1 - a2);
+  let den2 = l2 * (2 * m1 + m2 - m2 * Math.cos(2 * a1 - 2 * a2));
+  let a2_acc = (num5 * (num6 + num7 + num8)) / den2;
+
+  // integrate using Euler method
+  p1.velocity += a1_acc * dt;
+  p1.theta += p1.velocity * dt;
+
+  p2.velocity += a2_acc * dt;
+  p2.theta += p2.velocity * dt;
+
+  // Cartesian coordinates
+  let x1 = l1 * Math.sin(p1.theta);
+  let y1 = -l1 * Math.cos(p1.theta);
+
+  let x2 = x1 + l2 * Math.sin(p2.theta);
+  let y2 = y1 - l2 * Math.cos(p2.theta);
+
+  [p1.x, p1.y] = convert_xy_2_coords(x1, y1);
+  [p2.x, p2.y] = convert_xy_2_coords(x2, y2);
+
+  console.log("New p1 x,y: (", p1.x, p1.y, ")");
+  console.log("New p2 x,y: (", p2.x, p2.y, ")");
 }
+
 
 function draw(){
   ctx.fillStyle = "black";
   ctx.fillRect(0, 0, width, height)
+  drawMidline();
+
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = 'red';
+  ctx.beginPath();
+  ctx.moveTo(Math.floor((1/2)*width), midLineHeight)
+  ctx.lineTo(p1.x, p1.y);
+  ctx.stroke()
+
+  ctx.strokeStyle = "yellow";
+  ctx.beginPath();
+  ctx.moveTo(p1.x, p1.y)
+  ctx.lineTo(p2.x, p2.y);
+  ctx.stroke();
+
+  drawBolt(Math.floor(p1.x), Math.floor(p1.y), 15);
+  drawBolt(Math.floor(width/2), Math.floor(midLineHeight), 15);
 }
 
 
@@ -61,7 +110,7 @@ function animate(currentTime){
 
     timeStep(); //can input a variable dt here
     draw();
-    console.log("simulation...........")
+    //console.log("simulation...........")
     animationId = requestAnimationFrame(animate);
 }
 
@@ -89,17 +138,22 @@ function convert_xy_2_coords(x, y){
   return [x1,y1]
 }
 
+function computeXY_from_theta(theta, r){
+  let x = 0;
+}
+
 
 function initializePendulums(){
-  p1.theta = 3*pi/2;
+  p1.theta = pi;
+  p2.theta = pi/2;
 
   p1.x = p1.length*Math.sin(p1.theta);
-  p1.y = p1.length*Math.cos(p1.theta);
-  
-  p2.theta = p1.theta + Math.asin((p2.length)/(Math.sqrt(p2.length**2 + p1.length**2)));
+  p1.y = -p1.length*Math.cos(p1.theta);
 
-  p2.x = (Math.sqrt(p2.length**2 + p1.length**2))*Math.sin(p2.theta)
-  p2.y = (Math.sqrt(p2.length**2 + p1.length**2))*Math.cos(p2.theta)
+  let totalTheta = p1.theta+p2.theta - pi/2
+
+  p2.x = p1.x + p2.length*Math.cos(totalTheta);
+  p2.y = p1.y + p2.length*Math.sin(totalTheta);
 
   const [x1, y1] = convert_xy_2_coords(p1.x, p1.y);
   p1.x = x1;
@@ -147,6 +201,7 @@ function drawMidline(){
 
 function startSimulation(){
   console.log("Starting simulation.........")
+  initializePendulums();
   animationId = requestAnimationFrame(animate);
 }
 
