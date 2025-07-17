@@ -92,8 +92,8 @@ function timeStep(dt) {
   let y1 = -l1 * Math.cos(p1.theta);
 
   let totalTheta = p1.theta + p2.theta - pi/2;
-  let x2 = x1 + l2 * Math.cos(totalTheta);
-  let y2 = y1 - l2 * Math.sin(totalTheta);
+  let x2 = x1 + l2 * Math.sin(totalTheta);
+  let y2 = y1 - l2 * Math.cos(totalTheta);
 
   [p1.x, p1.y] = convert_xy_2_coords(x1, y1);
 
@@ -214,8 +214,8 @@ function initializePendulums(){
 
   let totalTheta = p1.theta+p2.theta - pi/2
 
-  p2.x = p1.x + p2.length*Math.cos(totalTheta);
-  p2.y = p1.y - p2.length*Math.sin(totalTheta);
+  p2.x = p1.x + p2.length*Math.sin(totalTheta);
+  p2.y = p1.y - p2.length*Math.cos(totalTheta);
 
   const [x1, y1] = convert_xy_2_coords(p1.x, p1.y);
   p1.x = x1;
