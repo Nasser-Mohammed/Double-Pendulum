@@ -7,13 +7,22 @@
 //1/2*l*(theta'_1)^2*sin(theta_1-theta_2) + 1/2*g*sin(theta_2) = 0
 
 let p1 = {length: 185, mass: 15, theta: 0, velocity: 0, acceleration: 0, x: 0, y: 0};
-let p2 = {length: 125, mass: 7.5, theta: 0, velocity: 0, acceleration: 0, x: 0, y: 0};
+let p2 = {length: 125, mass: 20, theta: 0, velocity: 0, acceleration: 0, x: 0, y: 0};
 let midLineHeight;
 let midLineWidth;
 
 const pi = Math.PI;
 const g = 9.81;
 console.log("constants are: pi: ", pi, " and g: ", g);
+
+let isRunning = false;
+
+
+let trail = [];
+const maxTrailLength = 1000;
+let trail2 = [];
+const MAX_TRAIL_LENGTH = 2000;
+
 
 //this means it will rotate within a circle of radius 310
 //canvas height is 750 and anchorLine is at 333 (which is height/2.25)
@@ -24,7 +33,7 @@ let initial_y1;
 let initial_x2;
 let initial_y2;
 
-const dt = 0.1;
+const dt = 0.05;
 
 let canvas;
 let ctx;
@@ -35,63 +44,105 @@ let animationId;
 let lastTime = null
 
 function timeStep() {
-  let m1 = p1.mass;
-  let m2 = p2.mass;
-  let l1 = p1.length;
-  let l2 = p2.length;
-  let a1 = p1.theta;
-  let a2 = p2.theta;
-  let w1 = p1.velocity;
-  let w2 = p2.velocity;
+  let m1 = p1.mass, m2 = p2.mass;
+  let l1 = p1.length, l2 = p2.length;
+  let g = 9.81;
 
-  let num1 = -g * (2 * m1 + m2) * Math.sin(a1);
-  let num2 = -m2 * g * Math.sin(a1 - 2 * a2);
-  let num3 = -2 * Math.sin(a1 - a2) * m2;
-  let num4 = w2 * w2 * l2 + w1 * w1 * l1 * Math.cos(a1 - a2);
-  let den = l1 * (2 * m1 + m2 - m2 * Math.cos(2 * a1 - 2 * a2));
-  let a1_acc = (num1 + num2 + num3 * num4) / den;
+  function derivatives(state) {
+    let [a1, w1, a2, w2] = state;
 
-  let num5 = 2 * Math.sin(a1 - a2);
-  let num6 = (w1 * w1 * l1 * (m1 + m2));
-  let num7 = g * (m1 + m2) * Math.cos(a1);
-  let num8 = w2 * w2 * l2 * m2 * Math.cos(a1 - a2);
-  let den2 = l2 * (2 * m1 + m2 - m2 * Math.cos(2 * a1 - 2 * a2));
-  let a2_acc = (num5 * (num6 + num7 + num8)) / den2;
+    let delta = a2 - a1;
 
-  // integrate using Euler method
-  p1.velocity += a1_acc * dt;
-  p1.theta += p1.velocity * dt;
+    let denom1 = (m1 + m2) * l1 - m2 * l1 * Math.cos(delta) * Math.cos(delta);
+    let denom2 = (l2 / l1) * denom1;
 
-  p2.velocity += a2_acc * dt;
-  p2.theta += p2.velocity * dt;
+    let a1_acc = (m2 * l1 * w1 * w1 * Math.sin(delta) * Math.cos(delta) +
+                  m2 * g * Math.sin(a2) * Math.cos(delta) +
+                  m2 * l2 * w2 * w2 * Math.sin(delta) -
+                  (m1 + m2) * g * Math.sin(a1)) / denom1;
 
-  // Cartesian coordinates
+    let a2_acc = (-m2 * l2 * w2 * w2 * Math.sin(delta) * Math.cos(delta) +
+                  (m1 + m2) * g * Math.sin(a1) * Math.cos(delta) -
+                  (m1 + m2) * l1 * w1 * w1 * Math.sin(delta) -
+                  (m1 + m2) * g * Math.sin(a2)) / denom2;
+
+    return [w1, a1_acc, w2, a2_acc];
+  }
+
+  let state = [p1.theta, p1.velocity, p2.theta, p2.velocity];
+
+  let k1 = derivatives(state);
+  let k2 = derivatives(state.map((s, i) => s + dt * k1[i] / 2));
+  let k3 = derivatives(state.map((s, i) => s + dt * k2[i] / 2));
+  let k4 = derivatives(state.map((s, i) => s + dt * k3[i]));
+
+  let newState = state.map((s, i) => s + dt / 6 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]));
+
+  p1.theta = newState[0];
+  p1.velocity = newState[1];
+  p2.theta = newState[2];
+  p2.velocity = newState[3];
+
+  // Convert angles to Cartesian
   let x1 = l1 * Math.sin(p1.theta);
   let y1 = -l1 * Math.cos(p1.theta);
 
-  let x2 = x1 + l2 * Math.sin(p2.theta);
-  let y2 = y1 - l2 * Math.cos(p2.theta);
+  let totalTheta = p1.theta + p2.theta - pi/2;
+  let x2 = x1 + l2 * Math.cos(totalTheta);
+  let y2 = y1 + l2 * Math.sin(totalTheta);
 
   [p1.x, p1.y] = convert_xy_2_coords(x1, y1);
-  [p2.x, p2.y] = convert_xy_2_coords(x2, y2);
 
-  console.log("New p1 x,y: (", p1.x, p1.y, ")");
-  console.log("New p2 x,y: (", p2.x, p2.y, ")");
+  [p2.x, p2.y] = convert_xy_2_coords(x2, y2);
+  trail2.push([p2.x, p2.y]);
+  if (trail2.length > MAX_TRAIL_LENGTH) trail2.shift();
+
 }
+
+function drawTrail(trail) {
+  for (let i = 0; i < trail.length - 1; i++) {
+    const [x1, y1] = trail[i];
+    const [x2, y2] = trail[i + 1];
+
+    // Color cycling — strong in cyan/magenta spectrum
+    const t = i / trail.length;
+    const r = Math.floor(100 + 155 * Math.sin(2 * Math.PI * t));
+    const g = Math.floor(200 + 55 * Math.cos(4 * Math.PI * t)); // green boost for cyan
+    const b = Math.floor(255 - 100 * Math.sin(2 * Math.PI * t + Math.PI / 3));
+
+    ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`; // full opacity
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+}
+
+
+
 
 
 function draw(){
   ctx.fillStyle = "black";
   ctx.fillRect(0, 0, width, height)
   drawMidline();
+  ctx.beginPath();
+  ctx.strokeStyle = 'rgba(0, 255, 255, 0.7)';
+  ctx.lineWidth = 2;
+  drawTrail(trail2); // Yellow-ish trail from pendulum 2
 
-  ctx.lineWidth = 10;
+
+
+
+  ctx.lineWidth = 15;
   ctx.strokeStyle = 'red';
   ctx.beginPath();
   ctx.moveTo(Math.floor((1/2)*width), midLineHeight)
   ctx.lineTo(p1.x, p1.y);
   ctx.stroke()
 
+  ctx.lineWidth = 22;
   ctx.strokeStyle = "yellow";
   ctx.beginPath();
   ctx.moveTo(p1.x, p1.y)
@@ -138,14 +189,11 @@ function convert_xy_2_coords(x, y){
   return [x1,y1]
 }
 
-function computeXY_from_theta(theta, r){
-  let x = 0;
-}
 
 
 function initializePendulums(){
-  p1.theta = pi;
-  p2.theta = pi/2;
+  p1.theta = pi + Math.random()*2-1
+  p2.theta = pi/2 + Math.random()*2-1;
 
   p1.x = p1.length*Math.sin(p1.theta);
   p1.y = -p1.length*Math.cos(p1.theta);
@@ -166,13 +214,14 @@ function initializePendulums(){
   console.log("Starting position for top pendulum: x: ", p1.x , " y: ", p1.y);
   console.log("Starting position for bottom pendulum: x: ", p2.x, " y: ", p2.y);
 
-  ctx.lineWidth = 10;
+  ctx.lineWidth = 15;
   ctx.strokeStyle = 'red';
   ctx.beginPath();
   ctx.moveTo(Math.floor((1/2)*width), midLineHeight)
   ctx.lineTo(p1.x, p1.y);
   ctx.stroke()
 
+  ctx.lineWidth = 22;
   ctx.strokeStyle = "yellow";
   ctx.beginPath();
   ctx.moveTo(p1.x, p1.y)
@@ -201,13 +250,12 @@ function drawMidline(){
 
 function startSimulation(){
   console.log("Starting simulation.........")
-  initializePendulums();
   animationId = requestAnimationFrame(animate);
 }
 
-function stopSimulation(){
+function resetSimulation(){
   cancelAnimationFrame(animationId);
-  console.log("Stopped simulation");
+  console.log("Reset simulation");
   ctx.fillStyle = "black";
   ctx.fillRect(0,0, width, height);
   p1.x = 0;
@@ -220,6 +268,7 @@ function stopSimulation(){
   p2.theta = 0;
   p2.acceleration = 0;
   p2.velocity = 0;
+  trail2 = [];
   initCanvas();
 }
 
@@ -244,14 +293,26 @@ document.addEventListener("DOMContentLoaded", () => {
   const startBtn = document.getElementById("startBtn");
 
   startBtn.addEventListener("click", () => {
+    
+    if (!isRunning) {
     startSimulation();
+    startBtn.textContent = "Pause";
+    startBtn.style.backgroundColor = "#007bff"; // blue
+    isRunning = true;
+  } else {
+    cancelAnimationFrame(animationId);
+    startBtn.textContent = "Start";
+    startBtn.style.backgroundColor = "#28a745"; // green
+    isRunning = false;
+  }
+
   });
 
   stopBtn.addEventListener("click", () => {
-    stopSimulation();
+      resetSimulation();
+      startBtn.textContent = "Click to start";
+      startBtn.style.backgroundColor = "#28a745";
+      isRunning = false;
   })
-
-
-
 
 });
