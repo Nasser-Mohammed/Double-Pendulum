@@ -6,12 +6,14 @@
 //1/3*l*theta''_2 + 1/2*l*theta''_1*cos(theta_1-theta_2) -
 //1/2*l*(theta'_1)^2*sin(theta_1-theta_2) + 1/2*g*sin(theta_2) = 0
 
-let stateVector1 = {length: 185, mass: 15, theta: 0, velocity: 0, acceleration: 0, x: 0, y: 0};
-let stateVector2 = {length: 125, mass: 7.5, theta: 0, velocity: 0, acceleration: 0, x: 0, y: 0};
+let p1 = {length: 185, mass: 15, theta: 0, velocity: 0, acceleration: 0, x: 0, y: 0};
+let p2 = {length: 125, mass: 7.5, theta: 0, velocity: 0, acceleration: 0, x: 0, y: 0};
 let midLineHeight;
 let midLineWidth;
 
 const pi = Math.PI;
+const g = 6.6743*Math.pow(10, -11);
+console.log("constants are: pi: ", pi, " and g: ", g);
 
 //this means it will rotate within a circle of radius 310
 //canvas height is 750 and anchorLine is at 333 (which is height/2.25)
@@ -29,10 +31,42 @@ let ctx;
 let height;
 let width;
 
+let animationId;
+let lastTime = null
 
 function timeStep(){
+  //little Omega is velocity, so its derivative is acceleration
+  let thetaDiff = p1.theta - p2.theta;
+  let dOmega = (-g*(2*p1.mass + p2.mass)*Math.sin(p1.theta) - p2.mass*g*Math.sin(p1.theta-2*p2.theta)-2*Math.sin(thetaDiff)*p2.mass*(p2.length*p2.velocity**2*Math.cos(thetaDiff)));
+  dOmega = dOmega/(p1.length*(2*p1.mass+p2.mass-p2.mass*Math.cos(2*thetaDiff)));
+  let dLambda = 2*Math.sin(thetaDiff)*(p1.length*(p1.mass+p2.mass)*p1.velocity**2)+g*(p1.mass+p2.mass)*Math.cos(p1.theta)+p2.length*p2.mass*p2.velocity**2*Math.cos(thetaDiff);
+  dLambda = dLambda/(p2.length*(2*p1.mass + p2.mass - p2.mass*Math.cos(2*(thetaDiff))));
   
+  p1.velocity = dt*p1.acceleration + p1.velocity;
+  p1.acceleration = dt*dOmega + p1.acceleration;
+  p2.velocity = dt*p2.acceleration + p2.velocity;
+  p2.acceleration = dt*dLambda + p2.acceleration;
 }
+
+function draw(){
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, width, height)
+}
+
+
+function animate(currentTime){
+    if (!lastTime) lastTime = currentTime;
+    const deltaTime = (currentTime - lastTime)/1000;
+    lastTime = currentTime;
+
+    timeStep(); //can input a variable dt here
+    draw();
+    console.log("simulation...........")
+    animationId = requestAnimationFrame(animate);
+}
+
+
+
 
 function drawBolt(x, y, radius){
   ctx.beginPath();
@@ -57,42 +91,48 @@ function convert_xy_2_coords(x, y){
 
 
 function initializePendulums(){
-  stateVector1.theta = pi/2;
+  p1.theta = pi/2;
 
-  stateVector1.x = stateVector1.length*Math.cos(stateVector1.theta);
-  stateVector1.y = stateVector1.length*Math.sin(stateVector1.theta);
+  p1.x = p1.length*Math.cos(p1.theta);
+  p1.y = p1.length*Math.sin(p1.theta);
   
-  stateVector2.theta = stateVector1.theta + Math.asin((stateVector2.length)/(Math.sqrt(stateVector2.length**2 + stateVector1.length**2)));
+  p2.theta = p1.theta + Math.asin((p2.length)/(Math.sqrt(p2.length**2 + p1.length**2)));
 
-  stateVector2.x = (Math.sqrt(stateVector2.length**2 + stateVector1.length**2))*Math.cos(stateVector2.theta)
-  stateVector2.y = (Math.sqrt(stateVector2.length**2 + stateVector1.length**2))*Math.sin(stateVector2.theta)
+  p2.x = (Math.sqrt(p2.length**2 + p1.length**2))*Math.cos(p2.theta)
+  p2.y = (Math.sqrt(p2.length**2 + p1.length**2))*Math.sin(p2.theta)
 
-  const [x1, y1] = convert_xy_2_coords(stateVector1.x, stateVector1.y);
-  stateVector1.x = x1;
-  stateVector1.y = y1;
+  const [x1, y1] = convert_xy_2_coords(p1.x, p1.y);
+  p1.x = x1;
+  p1.y = y1;
 
-  const [x2, y2] = convert_xy_2_coords(stateVector2.x, stateVector2.y);
-  stateVector2.x = x2;
-  stateVector2.y = y2;
+  const [x2, y2] = convert_xy_2_coords(p2.x, p2.y);
+  p2.x = x2;
+  p2.y = y2;
 
-  console.log("Starting position for top pendulum: x: ", stateVector1.x , " y: ", stateVector1.y);
-  console.log("Starting position for bottom pendulum: x: ", stateVector2.x, " y: ", stateVector2.y);
+  console.log("Starting position for top pendulum: x: ", p1.x , " y: ", p1.y);
+  console.log("Starting position for bottom pendulum: x: ", p2.x, " y: ", p2.y);
 
   ctx.lineWidth = 10;
   ctx.strokeStyle = 'red';
   ctx.beginPath();
   ctx.moveTo(Math.floor((1/2)*width), midLineHeight)
-  ctx.lineTo(stateVector1.x, stateVector1.y);
+  ctx.lineTo(p1.x, p1.y);
   ctx.stroke()
 
   ctx.strokeStyle = "yellow";
   ctx.beginPath();
-  ctx.moveTo(stateVector1.x, stateVector1.y)
-  ctx.lineTo(stateVector2.x, stateVector2.y);
+  ctx.moveTo(p1.x, p1.y)
+  ctx.lineTo(p2.x, p2.y);
   ctx.stroke();
 
-  drawBolt(stateVector1.x, stateVector1.y, 15);
+  drawBolt(p1.x, p1.y, 15);
   drawBolt(Math.floor(width/2), midLineHeight, 15);
+
+  p1.acceleration = 0;
+  p1.velocity = 0;
+
+  p2.acceleration = 0;
+  p2.velocity = 0;
 
 }
 
@@ -105,6 +145,35 @@ function drawMidline(){
     ctx.stroke();
 }
 
+function startSimulation(){
+  console.log("Starting simulation.........")
+  animationId = requestAnimationFrame(animate);
+}
+
+function stopSimulation(){
+  cancelAnimationFrame(animationId);
+  console.log("Stopped simulation");
+  ctx.fillStyle = "black";
+  ctx.fillRect(0,0, width, height);
+  p1.x = 0;
+  p1.y = 0;
+  p1.theta = 0;
+  p1.acceleration = 0;
+  p1.velocity = 0;
+  p2.x = 0;
+  p2.y = 0;
+  p2.theta = 0;
+  p2.acceleration = 0;
+  p2.velocity = 0;
+  initCanvas();
+}
+
+function initCanvas(){
+  drawMidline();
+  initializePendulums();
+}
+
+
 document.addEventListener("DOMContentLoaded", () => {
   canvas = document.getElementById("pendulumCanvas");
   ctx = canvas.getContext("2d");
@@ -114,6 +183,20 @@ document.addEventListener("DOMContentLoaded", () => {
   ctx.fillRect(0, 0, width, height);
   midLineHeight = Math.floor((1/2.25)*height);
   midLineWidth = width;
-  drawMidline();
-  initializePendulums();
+  initCanvas();
+
+  const stopBtn = document.getElementById("stopBtn");
+  const startBtn = document.getElementById("startBtn");
+
+  startBtn.addEventListener("click", () => {
+    startSimulation();
+  });
+
+  stopBtn.addEventListener("click", () => {
+    stopSimulation();
+  })
+
+
+
+
 });
